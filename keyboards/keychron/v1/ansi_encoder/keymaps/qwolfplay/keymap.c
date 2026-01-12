@@ -70,3 +70,16 @@ const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
     [WIN_FN]   = { ENCODER_CCW_CW(RM_VALD, RM_VALU)}
 };
 #endif // ENCODER_MAP_ENABLE
+
+// clang-format on
+
+bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
+    if (keymap_config.no_gui) {
+        RGB_MATRIX_INDICATOR_SET_COLOR(SUPER_KEY_LED_INDEX, 255, 255, 255);
+    } else {
+        if (!rgb_matrix_get_flags())
+        RGB_MATRIX_INDICATOR_SET_COLOR(SUPER_KEY_LED_INDEX, 0, 0, 0);
+    }
+
+    return true;
+}
