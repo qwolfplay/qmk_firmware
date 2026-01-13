@@ -28,6 +28,10 @@ enum layers{
 #define KC_TASK LGUI(KC_TAB)
 #define KC_FLXP LGUI(KC_E)
 
+enum custom_keycodes {
+    CU_GUHOLD = SAFE_RANGE
+};
+
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [MAC_BASE] = LAYOUT_ansi_82(
         KC_ESC,   KC_BRID,  KC_BRIU,  KC_NO,    KC_NO,    RM_VALD,  RM_VALU,  KC_MPRV,  KC_MPLY,  KC_MNXT,  KC_MUTE,  KC_VOLD,    KC_VOLU,  KC_DEL,             KC_MUTE,
@@ -82,4 +86,31 @@ bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
     }
 
     return true;
+}
+
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    static uint16_t gui_hold_timer;
+    static bool was_gui_toggle_triggered = false;
+
+    switch (keycode) {
+        case CU_GUHOLD:
+                if(record->event.pressed) {
+                    gui_hold_timer = timer_read();
+
+                    if (timer_elapsed(gui_hold_timer) > GUI_TOGGLE_HOLD_TIME && !was_gui_toggle_triggered) {
+                        keymap_config.no_gui = !keymap_config.no_gui;
+                        was_gui_toggle_triggered = true;
+                    }
+                } else {
+                    if (was_gui_toggle_triggered) {
+                        was_gui_toggle_triggered = false;
+                    } else {
+                        tap_code(KC_TRANSPARENT);
+                    }
+                }
+
+            return false;
+        default:
+            return true;
+    }
 }
