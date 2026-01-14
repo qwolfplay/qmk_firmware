@@ -29,7 +29,7 @@ enum layers{
 #define KC_FLXP LGUI(KC_E)
 
 enum custom_keycodes {
-    CU_GUHOLD = SAFE_RANGE
+    CU_GUTOGG = SAFE_RANGE,
 };
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
@@ -58,12 +58,12 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         KC_LCTL,  KC_LCMD,  KC_LALT,                                KC_SPC,                                 KC_RALT,  MO(WIN_FN), KC_RCTL,  KC_LEFT,  KC_DOWN,  KC_RGHT),
 
     [WIN_FN] = LAYOUT_ansi_82(
-        _______,  KC_BRID,  KC_BRIU,  KC_TASK,  KC_FLXP,  RM_VALD,  RM_VALU,  KC_MPRV,  KC_MPLY,  KC_MNXT,  KC_MUTE,  KC_VOLD,    KC_VOLU,  _______,            _______,
+        QK_BOOT,  KC_BRID,  KC_BRIU,  KC_TASK,  KC_FLXP,  RM_VALD,  RM_VALU,  KC_MPRV,  KC_MPLY,  KC_MNXT,  KC_MUTE,  KC_VOLD,    KC_VOLU,  _______,            _______,
         _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,    _______,  _______,            _______,
         RM_TOGG,  RM_NEXT,  RM_VALU,  RM_HUEU,  RM_SATU,  RM_SPDU,  _______,  _______,  _______,  _______,  _______,  _______,    _______,  _______,            _______,
         _______,  RM_PREV,  RM_VALD,  RM_HUED,  RM_SATD,  RM_SPDD,  _______,  _______,  _______,  _______,  _______,  _______,              _______,            _______,
         _______,            _______,  _______,  _______,  _______,  _______,  NK_TOGG,  _______,  _______,  _______,  _______,              _______,  KC_PGUP,
-        _______,  GU_TOGG,  _______,                                _______,                                _______,  _______,    _______,  KC_HOME,  KC_PGDN,  KC_END),
+        _______,  CU_GUTOGG,_______,                                _______,                                _______,  _______,    _______,  KC_HOME,  KC_PGDN,  KC_END),
 };
 
 #if defined(ENCODER_MAP_ENABLE)
@@ -77,40 +77,81 @@ const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
 
 // clang-format on
 
-bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
-    if (keymap_config.no_gui) {
-        RGB_MATRIX_INDICATOR_SET_COLOR(SUPER_KEY_LED_INDEX, 255, 255, 255);
-    } else {
-        if (!rgb_matrix_get_flags())
-        RGB_MATRIX_INDICATOR_SET_COLOR(SUPER_KEY_LED_INDEX, 0, 0, 0);
-    }
+bool     gui_toggle_key_held       = false;
+uint16_t gui_toggle_key_hold_timer = 0;
+bool     was_gui_toggle_triggered  = false;
 
-    return true;
-}
+bool     gui_toggle_anim_active = false;
+uint16_t gui_toggle_anim_timer  = 0;
+
+bool     dfu_key_held       = false;
+uint16_t dfu_key_hold_timer = 0;
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
-    static uint16_t gui_hold_timer;
-    static bool was_gui_toggle_triggered = false;
-
     switch (keycode) {
-        case CU_GUHOLD:
-                if(record->event.pressed) {
-                    gui_hold_timer = timer_read();
-
-                    if (timer_elapsed(gui_hold_timer) > GUI_TOGGLE_HOLD_TIME && !was_gui_toggle_triggered) {
-                        keymap_config.no_gui = !keymap_config.no_gui;
-                        was_gui_toggle_triggered = true;
-                    }
-                } else {
-                    if (was_gui_toggle_triggered) {
-                        was_gui_toggle_triggered = false;
-                    } else {
-                        tap_code(KC_TRANSPARENT);
-                    }
+        case CU_GUTOGG:
+            if (record->event.pressed) {
+                gui_toggle_key_held       = true;
+                gui_toggle_key_hold_timer = timer_read();
+                was_gui_toggle_triggered  = false;
+            } else {
+                if (!was_gui_toggle_triggered) {
+                    tap_code(KC_TRANSPARENT);
                 }
+            }
 
             return false;
         default:
             return true;
     }
+}
+
+void matrix_scan_user() {
+    /************************** */
+    /* CU_GUTOGG                */
+    /************************** */
+
+    // Wait until CU_GUTOGG is held and wait until hold time reaches defined value (eg. 3000ms)
+    if (gui_toggle_key_held && !was_gui_toggle_triggered) {
+        if (timer_elapsed(gui_toggle_key_hold_timer) > GUI_TOGGLE_HOLD_TIME) {
+            was_gui_toggle_triggered = true;
+            keymap_config.no_gui     = !keymap_config.no_gui;
+
+            gui_toggle_anim_active = true;
+            gui_toggle_anim_timer  = timer_read();
+        }
+    }
+}
+
+bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
+    if (gui_toggle_anim_active) {
+        uint16_t elapsed = timer_elapsed(gui_toggle_anim_timer);
+
+        if (elapsed <= 600)
+            rgb_matrix_set_color_all(255, 255, 255);
+        else if (elapsed > 600 && elapsed <= 1000)
+            rgb_matrix_set_color_all(0, 0, 0);
+        else if (elapsed > 1000 && elapsed <= 1600)
+            rgb_matrix_set_color_all(255, 255, 255);
+        else if (elapsed > 1600 && elapsed <= 2000)
+            rgb_matrix_set_color_all(0, 0, 0);
+        else if (elapsed > 2000 && elapsed <= 2600)
+            rgb_matrix_set_color_all(255, 255, 255);
+        else if (elapsed > 2600)
+            rgb_matrix_set_color_all(0, 0, 0);
+        else if (elapsed > 3000)
+            gui_toggle_anim_active = false;
+
+        return false;
+    }
+
+    if (keymap_config.no_gui) {
+        RGB_MATRIX_INDICATOR_SET_COLOR(SUPER_KEY_LED_INDEX, 255, 255, 255);
+    } else {
+        if (!rgb_matrix_get_flags()) {
+            RGB_MATRIX_INDICATOR_SET_COLOR(SUPER_KEY_LED_INDEX, 0, 0, 0);
+        }
+    }
+
+    return true;
 }
