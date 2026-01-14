@@ -137,7 +137,7 @@ bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
             rgb_matrix_set_color_all(0, 0, 0);
         else if (elapsed > 2000 && elapsed <= 2600)
             rgb_matrix_set_color_all(255, 255, 255);
-        else if (elapsed > 2600)
+        else if (elapsed > 2600 && elapsed <= 3000)
             rgb_matrix_set_color_all(0, 0, 0);
         else if (elapsed > 3000)
             gui_toggle_anim_active = false;
